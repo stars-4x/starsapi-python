@@ -1,13 +1,14 @@
 '''
 Created on Jul 7, 2014
 
-@author: dbuck
+@author: raptor
 '''
 import logging
 
 
-# loggingLevel = logging.INFO
-loggingLevel = logging.DEBUG
+loggingLevel = logging.INFO
+# loggingLevel = logging.DEBUG
+
 logging.basicConfig(level=loggingLevel)
 
 
@@ -21,7 +22,15 @@ class Block:
         self.typeId = typeId
         self.size = size
         
-        pass
+    
+    # Dump block
+    def __str__(self):
+        return """
+typeId: %d; size: %d; data:
+%s
+decrypted data:
+%s""" % (self.typeId, self.size, list(self.data), list(self.decryptedData))
+
 
 
 class FileHeaderBlock:
@@ -272,47 +281,29 @@ def readFile(starsFile):
         else:  # Everything else decrypt like normal for now
             data = block.data
             block.decryptedData = decryptor.decryptBytes(data)
-        
-    
-        logging.debug("typeId: " + str(block.typeId) + "; size: " + str(block.size) + "; data: ")
-        logging.debug(list(block.data))
-        logging.debug("decrypted data:")
-        logging.debug(list(block.decryptedData))
-        
+
+
+        logging.debug(block)
     
         blocks.append(block)
         
-    pass
-
-
-
-def testing():
-    starsFile = "/home/dbuck/games/stars27j/games/buckstealth.xy"
-    
-    readFile(starsFile)
-
-"""
-    test = [153, 84, 194, 234, 20, 219, 240, 41, 180, 5, 18, 236, 
-            188, 38, 25, 0, 255, 118, 225, 61, 189, 175, 85, 56, 68, 30, 
-            59, 71, 149, 252, 81, 230, 141, 114, 1, 37, 160, 168, 29, 207, 
-            20, 53, 185, 174, 72, 162, 170, 13, 83, 189, 246, 28, 243, 110, 
-            212, 197, 58, 234, 61, 57, 56, 51, 86, 40 ]
-
-    d = Decryptor()
-    d.initDecryption(1635, 12170179, 0, 31, 0)
-    
-    output = d.decryptBytes(byteArray[20:84])
-    
-    print len(output)
-    print list(output)
-"""
+    return blocks
 
 
 
 def main():
-    testing()
+    starsFile = "../../../../games/stars27j/games/buckstealth.xy"
+    
+    # Retrieve a list of decrypted blocks from the file
+    blocks = readFile(starsFile)
+    
+    # Now do great and amazing things with the blocks!
+    for block in blocks:
+        print block
+    
     
     pass
+
 
 
 if __name__ == '__main__':
