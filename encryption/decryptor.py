@@ -5,96 +5,17 @@ Created on Jul 7, 2014
 '''
 import logging
 
+from Util import read16
+import blocks
+from blocks.FileHeaderBlock import FileHeaderBlock
+from blocks.PlanetsBlock import PlanetsBlock
 
-loggingLevel = logging.INFO
-# loggingLevel = logging.DEBUG
+
+# loggingLevel = logging.INFO
+loggingLevel = logging.DEBUG
 
 logging.basicConfig(level=loggingLevel)
 
-
-"""
-Generic Block class for Stars! blocks
-"""
-class Block:
-    def __init__(self, typeId, size):
-        self.data = bytearray()
-        self.decryptedData = bytearray()
-        self.typeId = typeId
-        self.size = size
-        
-    
-    # Dump block
-    def __str__(self):
-        return """
-typeId: %d; size: %d; data:
-%s
-decrypted data:
-%s""" % (self.typeId, self.size, list(self.data), list(self.decryptedData))
-
-
-
-class FileHeaderBlock:
-    def __init__(self, data):
-        playerData = read16(data, 12)
-        
-        self.salt = playerData >> 5   # First 11 bits
-        self.gameId = read32(data, 4)
-        self.turn = read16(data, 10)
-        self.playerIndex = playerData & 0x1F  # Last 5 bits
-        self.shareware = (data[15] >> 4) & 1
-        
-        pass
-    
-    
-class PlanetsBlock:
-    def __init__(self, data):
-        # TODO bytes 0-3 
-        
-        self.universeSize = read16(data, 4) # Uses all 16 bits?
-        self.density = read16(data, 6)      # Uses all 16 bits?
-        self.playerCount = read16(data, 8)  # Uses all 16 bits?
-        self.planetCount = read16(data, 10)
-        self.startingDistance = read32(data, 12)
-        self.gameSettings = data[16]  
-        
-        # TODO bytes 17-31
-        
-        self.gameName = str(data[32:64])
-        
-        # This is a list of planets with their nameId, x, and y coordinates
-        self.planets = []
-        
-        pass
-    
-    
-    def parsePlanetsData(self, data):
-        # Apparently the x coordinate is not stored, rather the offset from the 
-        # previous planet in the list is stored...  Also, the X coordinate starts
-        # at 1000 as shown in the Stars! viewer.  Oddities everywhere!
-        x = 1000
-            
-        for i in xrange(self.planetCount):
-            planetData = read32(data, i*4)
-             
-            nameId = planetData >> 22       # First 10 bits
-            y = (planetData >> 10) & 0xFFF  # Middle 12 bits
-            xOffset = planetData & 0x3FF    # Last 10 bits
-            x = x + xOffset
-            
-            planetDecodedData = {
-                         "nameId": nameId,
-                         "y": y,
-                         "x": x,
-                         }
-            
-            self.planets.append(planetDecodedData)
-
-        pass
-    
-    
-    def getPlanets(self):
-        return self.planets
-    
     
 
 """
@@ -249,43 +170,21 @@ class Decryptor():
         
         pass
 
-
-"""
-Reads a 16 bit integer from a byte array.
-
-The bytes are swapped because the byte stream is little endian
-"""
-def read16(byteArray, byteIndex):
-    
-    return (byteArray[byteIndex+1] << 8) | byteArray[byteIndex]
-
-
-"""
-Reads a 32 bit integer from a byte array.
-
-The bytes are swapped because that's what's needed (I'm unsure if 32 bit
-integer is written in this order on a Win16 platform)
-
-Swapped as D C B A
-"""
-def read32(byteArray, byteIndex):
-    
-    return (byteArray[byteIndex+3] << 24) | (byteArray[byteIndex+2] << 16) | (byteArray[byteIndex+1] << 8) | byteArray[byteIndex]
-    
     
 
 def parseBlock(fileBytes, offset):
-
+    '''
+    This returns the 3 relevant parts of a block: typeId, size, raw data
+    '''
     blockHeader = read16(fileBytes, offset)
     
     typeId = blockHeader >> 10   # First 6 bits
     size = blockHeader & 0x3FF # Last 10 bits
             
-    block = Block(typeId, size)
+    data = fileBytes[offset+2:offset+2+size]
     
-    block.data = fileBytes[offset+2:offset+2+size]
     
-    return block;
+    return (typeId, size, data);
 
 
 
@@ -296,62 +195,55 @@ def readFile(starsFile):
         fileBytes = bytearray(raw)
         
     
-    blocks = []
+    blockList = []
     decryptor = Decryptor()
         
     offset = 0
     while offset < len(fileBytes):
-        block = parseBlock(fileBytes, offset)
+        # Get block info and data
+        (typeId, size, data) = parseBlock(fileBytes, offset)
         
+        logging.debug("BLOCK:\ntypeId: %d; size: %d; data:\n%s" % (typeId, size, list(data)))
+    
         # Advance our read index to skip the block header
-        offset = offset + block.size + 2;
+        offset = offset + size + 2;
+        
+        block = None
         
         # Do the decryption!  (handle exceptions)
-        if block.typeId == 8:  # FileHeaderBlock
-            h = FileHeaderBlock(block.data)
-            decryptor.initDecryption(h.salt, h.gameId, h.turn, h.playerIndex, h.shareware)
-            
-        elif block.typeId == 7:  # PlanetsBlock
-            block.decryptedData = decryptor.decryptBytes(block.data)
-            
-            p = PlanetsBlock(block.decryptedData)
-            
-            # A whole bunch of planets data is tacked onto the end of this block
-            # We need to determine how much and parse it
-            length = p.planetCount * 4  # 4 bytes per planet
-            
-            p.parsePlanetsData(fileBytes[offset:offset+length])
-            
-            # Adjust our offset to after the planet data
-            offset = offset + length
-            
-        else:  # Everything else decrypt like normal for now
-            data = block.data
-            block.decryptedData = decryptor.decryptBytes(data)
-
-
-        logging.debug(block)
-    
-        blocks.append(block)
         
-    return blocks
+        # FileHeaderBlock is not encrypted
+        if typeId == 8:
+            block = FileHeaderBlock(typeId, size, data)
+            decryptor.initDecryption(block.salt, block.gameId, block.turn, block.playerIndex, block.shareware)
+            
+        # Everything else needs to be decrypted
+        else:
+            decryptedData = decryptor.decryptBytes(data)
+            
+            logging.debug("decrypted data:\n%s" % (list(decryptedData)))
+            
+            # PlanetsBlock is an exception in that it has more data tacked onto the end
+            if typeId == 7: 
+                block = PlanetsBlock(typeId, size, decryptedData)
+                
+                # A whole bunch of planets data is tacked onto the end of this block
+                # We need to determine how much and parse it
+                length = block.planetCount * 4  # 4 bytes per planet
+                
+                block.parsePlanetsData(fileBytes[offset:offset+length])
+                
+                # Adjust our offset to after the planet data
+                offset = offset + length
+                
+            # Else dynamically create the block for this type
+            else:
+                block = blocks.createBlock(typeId, size, decryptedData)
+                
+        # End if
 
+        # Add our block to the list
+        blockList.append(block)
+        
+    return blockList
 
-
-def main():
-    starsFile = "../../../../games/stars27j/games/difficultattempt.xy"
-    
-    # Retrieve a list of decrypted blocks from the file
-    blocks = readFile(starsFile)
-    
-    # Now do great and amazing things with the blocks!
-    for block in blocks:
-        print block
-    
-    
-    pass
-
-
-
-if __name__ == '__main__':
-    main()
