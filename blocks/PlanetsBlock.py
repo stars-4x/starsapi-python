@@ -6,6 +6,7 @@ Created on Jul 19, 2014
 
 from Util import *
 from blocks.Block import Block
+from blocks import PLANET_NAMES
 
 
 class PlanetsBlock(Block):
@@ -45,8 +46,11 @@ class PlanetsBlock(Block):
             xOffset = planetData & 0x3FF    # Last 10 bits
             x = x + xOffset
             
+            name = PLANET_NAMES[nameId]
+            
             planetDecodedData = {
                          "nameId": nameId,
+                         "name": name,
                          "y": y,
                          "x": x,
                          }
