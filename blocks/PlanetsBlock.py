@@ -10,6 +10,10 @@ from blocks import PLANET_NAMES
 
 
 class PlanetsBlock(Block):
+    """
+    Possible reference for probable meanings of unknown bytes:
+       http://wiki.starsautohost.org/wiki/Game.def_files
+    """
     def __init__(self, typeId, size, data):
         Block.__init__(self, typeId, size, data)
         
@@ -20,9 +24,25 @@ class PlanetsBlock(Block):
         self.playerCount = read16(data, 8)  # Uses all 16 bits?
         self.planetCount = read16(data, 10)
         self.startingDistance = read32(data, 12)
-        self.gameSettings = data[16]  
+
+        # 16 bits?
+        self.gameSettings = read16(data, 16)  
+        """
+        Determined bits of game settings:
         
-        # TODO bytes 17-31
+        Max Minerals       - 0000000000000001
+        Slow tech advances - 0000000000000010
+        Accel. BBS play    - 0000000000100000
+        No random events   - 0000000010000000
+        Computer Alliances - 0000000000010000
+        Public scores      - 0000000001000000
+        Galaxy Clumping    - 0000000100000000
+        Single player (?)  - 0000000000000100
+        
+        What is bit 4?       0000000000001000
+        """
+                
+        # TODO bytes 18-31
         
         self.gameName = str(data[32:64])
         
@@ -49,6 +69,8 @@ class PlanetsBlock(Block):
             name = PLANET_NAMES[nameId]
             
             planetDecodedData = {
+                         "id": i,
+                         "displayId": i+1,
                          "nameId": nameId,
                          "name": name,
                          "y": y,
