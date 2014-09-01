@@ -3,7 +3,7 @@ Created on Jul 19, 2014
 
 @author: raptor
 '''
-from Util import *
+from util import *
 from blocks.Block import Block
 
 

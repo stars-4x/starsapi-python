@@ -4,9 +4,10 @@ Created on Jul 19, 2014
 @author: raptor
 '''
 
-from Util import *
-from blocks.Block import Block
+from util import *
+
 from blocks import PLANET_NAMES
+from blocks.Block import Block
 
 
 class PlanetsBlock(Block):

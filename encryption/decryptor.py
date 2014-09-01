@@ -5,7 +5,7 @@ Created on Jul 7, 2014
 '''
 import logging
 
-from Util import read16
+import util
 import blocks
 from blocks.FileHeaderBlock import FileHeaderBlock
 from blocks.PlanetsBlock import PlanetsBlock
@@ -176,7 +176,7 @@ def parseBlock(fileBytes, offset):
     '''
     This returns the 3 relevant parts of a block: typeId, size, raw data
     '''
-    blockHeader = read16(fileBytes, offset)
+    blockHeader = util.read16(fileBytes, offset)
     
     typeId = blockHeader >> 10   # First 6 bits
     size = blockHeader & 0x3FF # Last 10 bits
