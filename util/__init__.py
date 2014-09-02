@@ -3,7 +3,6 @@ Created on Jul 25, 2014
 
 @author: raptor
 '''
-
 """
 Reads a 16 bit integer from a byte array.
 
@@ -35,9 +34,6 @@ def read32(byteArray, byteIndex):
 """
 This will hash a password to match the 4 byte hash generated in a PlayerBlock
 at data offset 12
-
-FIXME: This fails for strings that generate numbers larger than 32 bits because
-of python's implicit integer-overflow-to-long
 """
 def hashRacePassword(inputString):
     charList = list(bytearray(inputString))
@@ -46,13 +42,16 @@ def hashRacePassword(inputString):
     output = int(charList[0])
     
     # Now perform an arithmetic operation on each of the following char values
+    #
+    # We'll simulate 32 bit integer overflow by taking python's long type and 
+    # apply a bit mask of 0xffffffff
     for index, char in enumerate(charList[1:]):
         # if the character index is odd, multiply it against our hash
         if index & 1 == 0:
-            output *= int(char)
+            output = (output * int(char)) & 0xffffffff
         # else add it to our hash
         else:
-            output += int(char)
+            output = (output + int(char)) & 0xffffffff
 
     return output
 
